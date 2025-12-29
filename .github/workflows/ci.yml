@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+    tags:
+      - "v*"
+
+  pull_request:
+    branches: [ "main" ]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Read Version
+        run: |
+          echo version=`grep '^version=' module.prop | cut -d= -f2` >> $GITHUB_ENV
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        id: upload-artifact
+        with:
+          name: ${{ github.event.repository.name }}-${{ env.version }}
+          path: |
+            *
+            !.*
+
+      - name: Pack Release
+        if: github.ref_type == 'tag'
+        run: zip -r ${{ github.event.repository.name }}-${{ env.version }}.zip . -x ".*"
+
+      - name: Create Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: '*.zip'
